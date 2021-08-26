@@ -33,8 +33,8 @@ def main(profile):
             network_interface_id = azure_compute_vm["NetworkInterfaceId"]
             network_interface = get_azure_compute_virtual_machine_network_interface(f"azure://{network_interface_id}", config)
 
-            azure_compute_vm["PrivateIp"] = network_interface.get("privateIPAddress","")
-            subnetId = network_interface.get("subnetId","")
+            azure_compute_vm["PrivateIp"] = network_interface.get("privateIPAddress","") if network_interface else ""
+            subnetId = network_interface.get("subnetId","") if network_interface else ""
             azure_compute_vm["VirtualNetwork"] = subnetId.split("/")[-3] if subnetId else ""
             del azure_compute_vm["NetworkInterfaceId"]
 
@@ -234,11 +234,11 @@ def get_endpoint(base_url, path):
     sep = "{}/{}"
     if base_url.endswith("/"):
         sep = "{}{}"
-    return sep.format(base_url, path)   
+    return sep.format(base_url, path)
 
 def basic_auth_token(key, secret):
     auth_bytes = '{}:{}'.format(key, secret).encode("utf-8")
-    return b64encode(auth_bytes).decode() 
+    return b64encode(auth_bytes).decode()
 
 if __name__ == "__main__":
     if (sys.version_info > (3, 4)):
