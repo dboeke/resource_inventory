@@ -72,6 +72,13 @@ python3 main.py --profile default
 
 > [String] Turbot Profile to be used.
 
+-r, --resources
+> [String] [Multiple] Target resources types.
+>                     Options are: aws_ec2_instances, aws_ec2_volumes, azure_compute_vms.
+>                     Defaults to all
+
+  --help                Show this message and exit.
+
 --help
 
 > Lists all the options and their usages.

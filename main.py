@@ -9,39 +9,50 @@ from xdg import XDG_CONFIG_HOME
 
 @click.command()
 @click.option('-p', '--profile', default="default", help="[String] Profile to be used from config file.")
+@click.option('-r', '--resources', multiple=True, help="[String] [Multiple] Target resources types. Options are: aws_ec2_instances, aws_ec2_volumes, azure_compute_vms. Defaults to all")
 
-def main(profile):
+def main(profile, resources):
     config = load_turbot_config(profile)
 
-    aws_instances = get_aws_ec2_instances(config)
-    if aws_instances:
-        save_as_csv("aws_ec2_instances.csv", aws_instances)
+    if not resources or "aws_ec2_instances" in resources:
+        aws_ec2_instances = get_aws_ec2_instances(config)
+        if aws_ec2_instances:
+            save_as_csv("aws_ec2_instances.csv", aws_ec2_instances)
 
-    aws_ec2_volumes = get_aws_ec2_volumes(config)
-    if aws_ec2_volumes:
-        save_as_csv("aws_ec2_volumes.csv", aws_ec2_volumes)
+    if not resources or "aws_ec2_volumes" in resources:
+        aws_ec2_volumes = get_aws_ec2_volumes(config)
+        if aws_ec2_volumes:
+            save_as_csv("aws_ec2_volumes.csv", aws_ec2_volumes)
 
-    azure_compute_vms = get_azure_compute_virtual_machines(config)
-    if azure_compute_vms:
-        for azure_compute_vm in azure_compute_vms:
-            # Get the latest VM status as the state
-            statuses = azure_compute_vm["Statuses"]
-            azure_compute_vm["State"] = statuses[-1].get("displayStatus","")
-            del azure_compute_vm["Statuses"]
+    if not resources or "azure_compute_vms" in resources:
+        azure_compute_vms = get_azure_compute_virtual_machines(config)
+        if azure_compute_vms:
+            for azure_compute_vm in azure_compute_vms:
+                # Get the latest VM status as the state
+                try:
+                    statuses = azure_compute_vm["Statuses"]
+                    azure_compute_vm["State"] = statuses[-1].get("displayStatus","")
+                except Exception as e:
+                    print(f"Error: {e} at resource {azure_compute_vm['TurbotId']} when getting VM status, skipping")
+                del azure_compute_vm["Statuses"]
 
-            # Get private IP and virtual network
-            network_interface_id = azure_compute_vm["NetworkInterfaceId"]
-            network_interface = get_azure_compute_virtual_machine_network_interface(f"azure://{network_interface_id}", config)
+                # Get private IP and virtual network
+                try:
+                    network_interface_id = azure_compute_vm["NetworkInterfaceId"]
+                    network_interface = get_azure_compute_virtual_machine_network_interface(f"azure://{network_interface_id}", config)
 
-            azure_compute_vm["PrivateIp"] = network_interface.get("privateIPAddress","") if network_interface else ""
-            subnetId = network_interface.get("subnetId","") if network_interface else ""
-            azure_compute_vm["VirtualNetwork"] = subnetId.split("/")[-3] if subnetId else ""
-            del azure_compute_vm["NetworkInterfaceId"]
+                    azure_compute_vm["PrivateIp"] = network_interface.get("privateIPAddress","") if network_interface else ""
+                    subnetId = network_interface.get("subnetId","") if network_interface else ""
+                    azure_compute_vm["VirtualNetwork"] = subnetId.split("/")[-3] if subnetId else ""
+                except Exception as e:
+                    print(f"Error: {e} at resource {azure_compute_vm['TurbotId']} when getting VM network details, skipping")
+                del azure_compute_vm["NetworkInterfaceId"]
 
-        save_as_csv("azure_compute_vms.csv", azure_compute_vms)
+            save_as_csv("azure_compute_vms.csv", azure_compute_vms)
 
 def save_as_csv(csv_file_name, content):
     if not content:
+        print(f"Nothing to save on {csv_file_name}, skipping.")
         return
 
     os.makedirs(os.path.dirname(f"output/{csv_file_name}"), exist_ok=True)
@@ -206,6 +217,8 @@ def get_azure_compute_virtual_machine_network_interface(network_interface_id, co
 
     query_result = run_query(query, variables, config)
     resource = query_result["data"]["resource"]
+    if not resource:
+        print(f"Azure compute network interface {network_interface_id} not found.")
     return resource
 
 def load_turbot_config(config_profile):
