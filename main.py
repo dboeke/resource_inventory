@@ -14,6 +14,8 @@ from xdg import XDG_CONFIG_HOME
 def main(profile, resources):
     config = load_turbot_config(profile)
 
+    print("Starting script - Version 1.0.0")
+
     if not resources or "aws_ec2_instances" in resources:
         aws_ec2_instances = get_aws_ec2_instances(config)
         if aws_ec2_instances:
@@ -31,7 +33,7 @@ def main(profile, resources):
                 # Get the latest VM status as the state
                 try:
                     statuses = azure_compute_vm["Statuses"]
-                    azure_compute_vm["State"] = statuses[-1].get("displayStatus","")
+                    azure_compute_vm["State"] = statuses[-1].get("displayStatus","") if statuses else ""
                 except Exception as e:
                     print(f"Error: {e} at resource {azure_compute_vm['TurbotId']} when getting VM status, skipping")
                 del azure_compute_vm["Statuses"]
@@ -106,7 +108,7 @@ def get_aws_ec2_instances(config):
                     State: get(path: "State.Name")
                     Tags: tags
                     TurbotId: get(path: "turbot.id")
-                    }
+                }
                 paging {
                     next
                 }
@@ -179,7 +181,7 @@ def get_azure_compute_virtual_machines(config):
                     TurbotId: get(path: "turbot.id")
                     Statuses: get(path: "statuses")
                     NetworkInterfaceId: get(path: "networkProfile.networkInterfaces[0].id")
-                    }
+                }
                 paging {
                     next
                 }
